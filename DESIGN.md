@@ -9,7 +9,7 @@ Blockchain Design
 
 
 P2P Protocol
-Modeled like
+Modeled like the meal swipes are automatically tracked and transferred over the peer to peer, not realistic.
 
 
 Demo Application Design
