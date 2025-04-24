@@ -10,11 +10,15 @@ Our project will use a decentralized ledger to monitor transactions and keep tra
 # P2P Protocol
 Upon joining the network, each new node must first contact a central server to obtain a list of peers. Before making any transactions, a new node must either join a group or create a new one. If joining an existing group, the node must include a valid group code in its request to the central server. When a user joins an existing group, the server broadcasts the user’s information (UNI, swipe balance, etc) to every peer within the group. After obtaining peer information, the new node sends a request to a randomly selected peer within the group to obtain the most up-to-date copy of the blockchain. For every transaction, a peer broadcasts the transaction information to each peer within the group, and each peer updates their local ledger.
 
-Example Workflow \\
-Alice wants to send Bob 1 meal swipe.
+Example Workflow 
+
+Alice wants to send Bob 1 meal swipe.  
 Alice signs a transaction and broadcasts it.
+
 Peers verify Alice has ≥1 swipe and relay the transaction.
+
 The block leader includes it in the next block.
+
 After consensus, the block is added, and Bob’s balance updates.
 
 
