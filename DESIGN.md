@@ -9,9 +9,11 @@ Blockchain Design
 
 
 P2P Protocol
-
+Modeled like
 
 
 Demo Application Design
 
 "Friend Groups"
+
+Live feed of updated meal swipe numbers with time of
