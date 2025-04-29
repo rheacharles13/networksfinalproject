@@ -9,3 +9,5 @@ assume every peer list is static, ignore server for now
 
 
 group
+
+`python3 -m peer.p2p 50001`
