@@ -1,0 +1,6 @@
+class PeerManager:
+    def __init__(self):
+        self.peers = [("127.0.0.1", 50001), ("127.0.0.1", 50002)]  # Example peers
+
+    def add_peer(self, peer_address):
+        self.peers.append(peer_address)
