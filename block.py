@@ -64,6 +64,17 @@ class Blockchain:
             if not current_block.hash.startswith('0' * self.difficulty):
                 return False
         return True
+    
+    def create_block_from_dict(self, data):
+        txs = [Transaction(**tx) if isinstance(tx, dict) else tx for tx in data['transactions']]
+        return Block(
+            index=data['index'],
+            previous_hash=data['previous_hash'],
+            timestamp=data['timestamp'],
+            transactions=txs,
+            proof_of_work=data['proof_of_work']
+        )
+
 
     def get_last_block(self):
         return self.chain[-1]
