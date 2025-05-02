@@ -8,7 +8,9 @@ app = Flask(__name__)
 HOST = "0.0.0.0"
 PORT = 5002  # Change for each peer
 PEER_NAME = f"peer-{PORT}"
-TRACKER_HOST = "http://127.0.0.1"
+TRACKER_HOST = "34.9.180.74"
+#socket
+#
 TRACKER_PORT = 8000
 
 blockchain = Blockchain(difficulty=2)
