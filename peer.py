@@ -84,7 +84,7 @@ def show_peers():
 def register_with_tracker():
     try:
         url = f"http://{TRACKER_HOST}:{TRACKER_PORT}/register"
-        payload = {"name": PEER_NAME, "host": "peer_vm_ip", "port": PORT}
+        payload = {"name": PEER_NAME, "port": PORT}
         res = requests.post(url, json=payload)
         print(f"✅ Registered with tracker: {res.json()}")
     except Exception as e:

@@ -6,6 +6,7 @@ peers = []
 @app.route('/register', methods=['POST'])
 def register():
     peer = request.json
+    peer['host'] = request.remote_addr
     if peer not in peers:
         peers.append((peer['host'], peer['port']))
         print(f"📥 Registered: {peer}")
