@@ -13,7 +13,14 @@ class Block:
         self.hash = self.compute_hash()
 
     def compute_hash(self):
-        block_string = json.dumps(self.__dict__, sort_keys=True)
+        block_data = {
+            "index": self.index,
+            "previous_hash": self.previous_hash,
+            "timestamp": self.timestamp,
+            "transactions": [str(tx) for tx in self.transactions],
+            "proof_of_work": self.proof_of_work
+        }
+        block_string = json.dumps(block_data, sort_keys=True)
         return hashlib.sha256(block_string.encode()).hexdigest()
 
 
