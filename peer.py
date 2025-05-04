@@ -117,7 +117,7 @@ HTML = """
 </html>
 """
 
-REQUIRED_KEYS = ['hash', 'previous_hash', 'index', 'timestamp', 'data', 'nonce']
+REQUIRED_KEYS = ['hash', 'previous_hash']
 
 def is_valid_chain(chain_data):
     for i in range(1, len(chain_data)):
