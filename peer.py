@@ -35,6 +35,27 @@ HTML = """
 <h3><a href="/mine">⛏️ Mine New Block</a></h3>
 <h3><a href="/peers">🔗 View Peers</a></h3>
 """
+def is_valid_chain(chain_data):
+    for i in range(1, len(chain_data)):
+        prev = chain_data[i - 1]
+        curr = chain_data[i]
+
+        # Check hash linkage
+        if curr['previous_hash'] != prev['hash']:
+            return False
+        
+        # Check proof of work
+        if not curr['hash'].startswith('0' * blockchain.difficulty):
+            return False
+        
+        # Recalculate the hash
+        block_obj = blockchain.create_block_from_dict(curr)
+        if block_obj.hash != curr['hash']:
+            return False
+
+    return True
+
+
 
 @app.route('/')
 def index():
@@ -70,6 +91,7 @@ def receive_transaction():
     blockchain.current_transactions.append(tx)
     return jsonify({"status": "received"}), 200
 
+""" 
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
     block_data = request.get_json()["data"]
@@ -77,10 +99,83 @@ def receive_block():
     # You should also validate the block here
     blockchain.add_block(new_block)
     return jsonify({"status": "block received"}), 200
+""" 
+
+@app.route('/receive_block', methods=['POST'])
+def receive_block():
+    data = request.get_json()
+    block_data = data["data"]
+    sender = data.get("sender")  # Expecting format: {"ip": ..., "port": ...}
+
+    new_block = blockchain.create_block_from_dict(block_data)
+    last_block = blockchain.get_last_block()
+
+    if new_block.previous_hash == last_block.hash:
+        # Normal case
+        if new_block.hash.startswith('0' * blockchain.difficulty):
+            blockchain.add_block(new_block)
+            return jsonify({"status": "block added"}), 200
+        else:
+            return jsonify({"status": "invalid proof"}), 400
+
+    # Fork detected – attempt resolution
+    if not sender:
+        return jsonify({"status": "missing sender info"}), 400
+
+    try:
+        url = f"http://{sender['ip']}:{sender['port']}/chain"
+        res = requests.get(url)
+        if res.status_code != 200:
+            return jsonify({"status": "chain fetch failed"}), 502
+
+        peer_chain_data = res.json()["chain"]
+        peer_chain_len = res.json()["length"]
+
+        if peer_chain_len > len(blockchain.chain) and is_valid_chain(peer_chain_data):
+            blockchain.chain = [blockchain.create_block_from_dict(b) for b in peer_chain_data]
+            return jsonify({"status": "fork resolved – chain replaced"}), 200
+        else:
+            return jsonify({"status": "peer chain invalid or not longer"}), 409
+
+    except Exception as e:
+        return jsonify({"status": "fork resolution error", "error": str(e)}), 500
+
+
+@app.route('/resolve', methods=['GET'])
+def resolve_conflicts():
+    global blockchain
+    longest_chain = blockchain.chain
+    for peer in peers:
+        try:
+            url = f"http://{peer[0]}:{peer[1]}/chain"
+            res = requests.get(url)
+            if res.status_code != 200:
+                continue
+            data = res.json()
+            chain = data["chain"]
+            if data["length"] > len(longest_chain) and is_valid_chain(chain):
+                longest_chain = [blockchain.create_block_from_dict(b) for b in chain]
+        except:
+            continue
+
+    if len(longest_chain) > len(blockchain.chain):
+        blockchain.chain = longest_chain
+        return jsonify({"status": "chain replaced with longer valid chain"}), 200
+    else:
+        return jsonify({"status": "our chain is longest"}), 200
+
+
 
 @app.route('/peers')
 def show_peers():
     return jsonify(list(peers))
+
+@app.route('/chain', methods=['GET'])
+def get_chain():
+    return jsonify({
+        "length": len(blockchain.chain),
+        "chain": [block.__dict__ for block in blockchain.chain]
+    })
 
 def register_with_tracker():
     try:
