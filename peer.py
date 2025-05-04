@@ -318,7 +318,15 @@ def broadcast_block(block):
     for peer in peers:
         try:
             url = f"http://{peer[0]}:{peer[1]}/receive_block"
-            requests.post(url, json={"type": "block", "data": block.__dict__})
+            block_data = {
+                "index": block.index,
+                "previous_hash": block.previous_hash,
+                "timestamp": block.timestamp,
+                "transactions": [tx.__dict__ for tx in block.transactions],
+                "proof_of_work": block.proof_of_work,
+                "hash": block.hash,
+            }
+            requests.post(url, json={"type": "block", "data": block_data})
         except Exception as e:
             print(f"❌ Could not send block to {peer}: {e}")
 
