@@ -3,12 +3,13 @@ from flask import Flask, request, jsonify, render_template_string, redirect
 import threading, requests, time, json
 from block import Blockchain
 from transaction import Transaction
+import sys
 
 app = Flask(__name__)
 HOST = "0.0.0.0"
 PORT = 5002  # Change for each peer
 PEER_NAME = f"peer-{PORT}"
-TRACKER_HOST = "34.9.180.74"
+TRACKER_HOST = sys.argv[1]
 #socket
 #
 TRACKER_PORT = 8000
