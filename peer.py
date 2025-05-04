@@ -156,7 +156,7 @@ def add_transaction():
                 net_bal -= amount
             elif tx.receiver == receiver:
                 net_bal += amount
-    if net_bal >= 0:
+    if net_bal >= amount:
         tx = Transaction(sender, receiver, amount)
         blockchain.current_transactions.append(tx)
         broadcast_transaction(tx)
