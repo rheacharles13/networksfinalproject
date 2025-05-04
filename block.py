@@ -44,8 +44,12 @@ class Blockchain:
         index = last_block.index + 1
         previous_hash = last_block.hash
         timestamp = time.time()
-        proof_of_work = self.proof_of_work(index, previous_hash, timestamp)
+        #proof_of_work = self.proof_of_work(index, previous_hash, timestamp)
+        proof_of_work = 0
         block = Block(index, previous_hash, timestamp, self.current_transactions, proof_of_work)
+        while block.hash[:self.difficulty] != "0" * self.difficulty:
+            proof_of_work += 1
+            block = Block(index, previous_hash, timestamp, self.current_transactions, proof_of_work)
         self.add_block(block)
         self.current_transactions = []
 
