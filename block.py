@@ -18,7 +18,8 @@ class Block:
             "previous_hash": self.previous_hash,
             "timestamp": self.timestamp,
             "transactions": [str(tx) for tx in self.transactions],
-            "proof_of_work": self.proof_of_work
+            "proof_of_work": self.proof_of_work,
+            "hash": self.hash,
         }
         block_string = json.dumps(block_data, sort_keys=True)
         return hashlib.sha256(block_string.encode()).hexdigest()

@@ -288,7 +288,8 @@ def get_chain():
             "previous_hash": block.previous_hash,
             "timestamp": block.timestamp,
             "transactions": [tx.__dict__ for tx in block.transactions],
-            "proof_of_work": block.proof_of_work
+            "proof_of_work": block.proof_of_work,
+            "hash": block.hash,
         }
         chain.append(block_data)
     return jsonify({
