@@ -202,10 +202,44 @@ def broadcast_block(block):
         except Exception as e:
             print(f"❌ Could not send block to {peer}: {e}")
 
+""" 
 def start():
     threading.Thread(target=lambda: app.run(host=HOST, port=PORT, debug=False)).start()
     time.sleep(2)
     register_with_tracker()
+""" 
+
+def start():
+    threading.Thread(target=lambda: app.run(host=HOST, port=PORT, debug=False)).start()
+    time.sleep(2)
+    register_with_tracker()
+    time.sleep(1)  # Give peers time to update
+    try_resolve_chain()
+
+def try_resolve_chain():
+    global blockchain
+    print("🔍 Trying to sync blockchain from peers...")
+    longest_chain = blockchain.chain
+    for peer in peers:
+        try:
+            url = f"http://{peer[0]}:{peer[1]}/chain"
+            res = requests.get(url, timeout=3)
+            if res.status_code != 200:
+                continue
+            data = res.json()
+            chain_data = data["chain"]
+            if data["length"] > len(longest_chain) and is_valid_chain(chain_data):
+                longest_chain = [blockchain.create_block_from_dict(b) for b in chain_data]
+                print(f"🔄 Found a longer chain from {peer}")
+        except Exception as e:
+            print(f"⚠️ Could not contact peer {peer}: {e}")
+
+    if len(longest_chain) > len(blockchain.chain):
+        blockchain.chain = longest_chain
+        print("✅ Synced with longer valid chain.")
+    else:
+        print("✅ Current chain is already the longest.")
+
 
 if __name__ == "__main__":
     start()
