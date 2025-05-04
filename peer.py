@@ -153,9 +153,9 @@ def add_transaction():
     for block in blockchain.chain:
         for tx in block.transactions:
             if tx.sender == sender:
-                net_bal -= amount
+                net_bal -= tx.amount
             elif tx.receiver == receiver:
-                net_bal += amount
+                net_bal += tx.amount
     if net_bal >= amount:
         tx = Transaction(sender, receiver, amount)
         blockchain.current_transactions.append(tx)
