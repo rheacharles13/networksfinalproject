@@ -287,7 +287,7 @@ def get_chain():
             "index": block.index,
             "previous_hash": block.previous_hash,
             "timestamp": block.timestamp,
-            "transactions": [str(tx) for tx in block.transactions],
+            "transactions": [tx.__dict__ for tx in block.transactions],
             "proof_of_work": block.proof_of_work
         }
         chain.append(block_data)
