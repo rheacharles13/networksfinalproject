@@ -1,6 +1,7 @@
 import hashlib
 import json
 import time
+from transaction import Transaction
 
 
 class Block:
