@@ -20,23 +20,103 @@ blockchain = Blockchain(difficulty=2)
 peers = set()
 
 HTML = """
-<h2>{{ peer_name }}</h2>
-<h3>Blockchain</h3>
-<ul>{% for block in chain %}
-    <li>Index: {{ block.index }} | Hash: {{ block.hash[:10] }}... | TXs: {{ block.transactions }}</li>
-{% endfor %}</ul>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ peer_name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h2 {
+            color: #2c3e50;
+        }
+        h3 {
+            margin-top: 30px;
+            color: #34495e;
+        }
+        ul {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            list-style-type: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #ecf0f1;
+            border-left: 5px solid #3498db;
+        }
+        form {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: inline-block;
+        }
+        input[type="text"],
+        input[type="number"] {
+            width: 200px;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #219150;
+        }
+        a {
+            display: inline-block;
+            margin-top: 10px;
+            text-decoration: none;
+            color: #2980b9;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h2>{{ peer_name }}</h2>
 
-<h3>Add Transaction</h3>
-<form method="POST" action="/add_transaction">
-    Sender: <input name="sender" required><br>
-    Receiver: <input name="receiver" required><br>
-    Amount: <input name="amount" type="number" required><br>
-    <input type="submit" value="Submit">
-</form>
+    <h3>Blockchain</h3>
+    <ul>
+        {% for block in chain %}
+            <li>
+                <strong>Index:</strong> {{ block.index }} |
+                <strong>Hash:</strong> {{ block.hash[:10] }}... |
+                <strong>TXs:</strong> {{ block.transactions }}
+            </li>
+        {% endfor %}
+    </ul>
 
-<h3><a href="/mine">⛏️ Mine New Block</a></h3>
-<h3><a href="/peers">🔗 View Peers</a></h3>
+    <h3>Add Transaction</h3>
+    <form method="POST" action="/add_transaction">
+        Sender: <input name="sender" required><br>
+        Receiver: <input name="receiver" required><br>
+        Amount: <input name="amount" type="number" required><br>
+        <input type="submit" value="Submit">
+    </form>
+
+    <h3><a href="/mine">⛏️ Mine New Block</a></h3>
+    <h3><a href="/peers">🔗 View Peers</a></h3>
+</body>
+</html>
 """
+
 def is_valid_chain(chain_data):
     for i in range(1, len(chain_data)):
         prev = chain_data[i - 1]
