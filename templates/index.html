@@ -7,6 +7,70 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <div class="container">
+        <header>
+            <h1>💳 Blockchain Meal Swipe Exchange</h1>
+        </header>
+
+        <section class="card">
+            <h2>👥 Connected Users</h2>
+            <ul id="users-list" class="list">
+                {% for user in users %}
+                    <li>{{ user }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>💸 Recent Transactions</h2>
+            <ul id="transactions-list" class="list">
+                {% for transaction in transactions %}
+                    <li><strong>{{ transaction.sender }}</strong> → <strong>{{ transaction.receiver }}</strong>: {{ transaction.amount }} swipes</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+
+    <script>
+        setInterval(function () {
+            fetch('/get_updates')
+                .then(response => response.json())
+                .then(data => {
+                    const usersList = document.getElementById('users-list');
+                    const transactionsList = document.getElementById('transactions-list');
+
+                    usersList.innerHTML = '';
+                    data.users.forEach(user => {
+                        const li = document.createElement('li');
+                        li.textContent = user;
+                        usersList.appendChild(li);
+                    });
+
+                    transactionsList.innerHTML = '';
+                    data.transactions.forEach(transaction => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong>${transaction.sender}</strong> → <strong>${transaction.receiver}</strong>: ${transaction.amount} swipes`;
+                        transactionsList.appendChild(li);
+                    });
+                });
+        }, 1000);
+    </script>
+</body>
+</html>
+
+
+
+<!-- 
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Network</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
     <h1>Blockchain Network</h1>
     
     <div class="section">
@@ -56,3 +120,7 @@
     </script>
 </body>
 </html>
+
+-->
+
+
