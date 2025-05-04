@@ -14,6 +14,8 @@ TRACKER_HOST = sys.argv[1]
 #
 TRACKER_PORT = 8000
 
+INIT_BALANCE = 150
+
 blockchain = Blockchain(difficulty=2)
 peers = set()
 
@@ -66,9 +68,20 @@ def add_transaction():
     sender = request.form['sender']
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
-    tx = Transaction(sender, receiver, amount)
-    blockchain.current_transactions.append(tx)
-    broadcast_transaction(tx)
+
+    net_bal = INIT_BALANCE
+    for block in blockchain.chain:
+        for tx in block.transactions:
+            if tx.sender == sender:
+                net_bal -= amount
+            elif tx.receiver == receiver:
+                net_bal += amount
+    if net_bal >= 0:
+        tx = Transaction(sender, receiver, amount)
+        blockchain.current_transactions.append(tx)
+        broadcast_transaction(tx)
+    else:
+        print(f"{sender} doesn't have enough swipes!")
     return redirect("/")
 
 @app.route('/mine')
