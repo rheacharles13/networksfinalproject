@@ -117,10 +117,21 @@ HTML = """
 </html>
 """
 
+REQUIRED_KEYS = ['hash', 'previous_hash', 'index', 'timestamp', 'data', 'nonce']
+
 def is_valid_chain(chain_data):
     for i in range(1, len(chain_data)):
         prev = chain_data[i - 1]
         curr = chain_data[i]
+
+        # Defensive check
+        for key in REQUIRED_KEYS:
+            if key not in curr:
+                print(f"Block {i} is missing key: {key}")
+                return False
+            if key not in prev and key == 'hash':
+                print(f"Previous block {i-1} is missing key: 'hash'")
+                return False
 
         # Check hash linkage
         if curr['previous_hash'] != prev['hash']:
