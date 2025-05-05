@@ -31,7 +31,73 @@ HTML = """
 <head>
     <title>{{ peer_name }}</title>
     <style>
-        /* [Previous styles remain the same...] */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h2 {
+            color: #2c3e50;
+        }
+        h3 {
+            margin-top: 30px;
+            color: #34495e;
+        }
+        ul {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            list-style-type: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #ecf0f1;
+            border-left: 5px solid #3498db;
+        }
+        form {
+            background: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        input[type="text"],
+        input[type="number"] {
+            width: 200px;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #219150;
+        }
+        a {
+            display: inline-block;
+            margin-top: 10px;
+            text-decoration: none;
+            color: #2980b9;
+            font-weight: bold;
+            padding: 10px 15px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+        }
+        a:hover {
+            text-decoration: underline;
+            background-color: #d6eaf8;
+        }
         .balance-positive { color: green; }
         .balance-negative { color: red; }
     </style>
@@ -62,9 +128,18 @@ HTML = """
         {% endfor %}
     </ul>
 
-    <!-- [Rest of the HTML remains the same...] -->
+    <h3>Add Transaction</h3>
+    <form method="POST" action="/add_transaction">
+        Sender: <input name="sender" required><br>
+        Receiver: <input name="receiver" required><br>
+        Amount: <input name="amount" type="number" required><br>
+        <input type="submit" value="Submit">
+    </form>
+
+    <h3><a href="/mine">⛏️ Mine New Block</a></h3>
+    <h3><a href="/peers">🔗 View Peers</a></h3>
 </body>
-</html>
+</html> 
 """
 
 
