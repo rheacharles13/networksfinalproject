@@ -231,16 +231,17 @@ def add_transaction():
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
 
-    # Initialize balances if needed (for display only)
+    # Initialize balances if needed
     if sender not in balances:
         balances[sender] = INIT_BALANCE
     if receiver not in balances:
         balances[receiver] = INIT_BALANCE
         
-    # Just store the transaction locally - no broadcasting
     tx = Transaction(sender, receiver, amount)
     if tx not in blockchain.current_transactions:
         blockchain.current_transactions.append(tx)
+        # Broadcast to network
+        threading.Thread(target=broadcast_transaction, args=(tx,)).start()
     else:
         print("Transaction already in pending pool")
     return redirect("/")
@@ -304,19 +305,27 @@ def update_peers():
     return jsonify({"status": "ok"}), 200
 
 
-"""
 @app.route('/receive_transaction', methods=['POST'])
 def receive_transaction():
-    tx_data = request.get_json()["data"]
-    tx = Transaction(**tx_data)
+    tx_data = request.get_json()
+    if "data" not in tx_data:
+        return jsonify({"status": "invalid data"}), 400
+        
+    tx = Transaction(**tx_data["data"])
     
     # Check if transaction already exists
     if tx in blockchain.current_transactions:
         return jsonify({"status": "transaction already exists"}), 200
         
+    # Validate transaction (check balances, etc.)
     blockchain.current_transactions.append(tx)
+    
+    # Optionally re-broadcast to other peers
+    if not tx_data.get("from_peer", False):
+        threading.Thread(target=broadcast_transaction, args=(tx,)).start()
+        
     return jsonify({"status": "received"}), 200
-""" 
+
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
     data = request.get_json()
@@ -430,8 +439,14 @@ def register_with_tracker():
 def broadcast_transaction(transaction):
     for peer in peers:
         try:
+            if peer[1] == PORT:  # Skip self
+                continue
+                
             url = f"http://{peer[0]}:{peer[1]}/receive_transaction"
-            requests.post(url, json={"type": "transaction", "data": transaction.__dict__})
+            requests.post(url, json={
+                "data": transaction.__dict__,
+                "from_peer": True  # Prevent broadcast loops
+            }, timeout=3)
         except Exception as e:
             print(f"❌ Could not send tx to {peer}: {e}")
 
