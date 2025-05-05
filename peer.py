@@ -5,7 +5,7 @@ from block import Blockchain
 from transaction import Transaction
 import sys
 
-balances = {}
+
 
 app = Flask(__name__)
 HOST = "0.0.0.0"
@@ -17,6 +17,10 @@ TRACKER_HOST = sys.argv[1]
 TRACKER_PORT = 8000
 
 INIT_BALANCE = 150
+
+balances = {}
+# Initialize balances with our own peer
+balances[PEER_NAME] = INIT_BALANCE
 
 blockchain = Blockchain(difficulty=2)
 peers = set()
@@ -99,7 +103,16 @@ def is_valid_chain(chain_data):
 
 @app.route('/')
 def index():
-    return render_template_string(HTML, chain=blockchain.chain, peer_name=PEER_NAME)
+    # Ensure our own peer is in balances if not already present
+    if PEER_NAME not in balances:
+        balances[PEER_NAME] = INIT_BALANCE
+        
+    return render_template_string(
+        HTML, 
+        chain=blockchain.chain, 
+        peer_name=PEER_NAME,
+        balances=balances  # Pass the balances to the template
+    )
 
 @app.route('/add_transaction', methods=['POST'])
 def add_transaction():
@@ -352,6 +365,9 @@ def start():
 
 # Modify the start function to initialize balances for all known peers
 def start():
+    # Initialize our own balance
+    balances[PEER_NAME] = INIT_BALANCE
+    
     threading.Thread(target=lambda: app.run(host=HOST, port=PORT, debug=False)).start()
     time.sleep(2)
     register_with_tracker()
