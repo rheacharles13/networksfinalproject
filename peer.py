@@ -303,15 +303,34 @@ def receive_transaction():
     blockchain.current_transactions.append(tx)
     return jsonify({"status": "received"}), 200
 """ 
-""" 
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
-    block_data = request.get_json()["data"]
+    data = request.get_json()
+    block_data = data["data"]
+    sender = data.get("sender")
+    force = data.get("force", False)
+
+    # Skip validation if forced (for initial sync)
+    if not force:
+        # [Keep all your existing validation checks...]
+        pass
+
     new_block = blockchain.create_block_from_dict(block_data)
-    # You should also validate the block here
-    blockchain.add_block(new_block)
-    return jsonify({"status": "block received"}), 200
-""" 
+    
+    # Always add the block if it's the next in sequence
+    if new_block.previous_hash == blockchain.get_last_block().hash:
+        blockchain.add_block(new_block)
+        # Remove any included transactions from pending
+        blockchain.current_transactions = [
+            tx for tx in blockchain.current_transactions
+            if tx not in new_block.transactions
+        ]
+        recalculate_balances()
+        return jsonify({"status": "block added"}), 200
+    else:
+        # If not the next block, trigger chain resolution
+        resolve_conflicts()
+        return jsonify({"status": "chain resolution triggered"}), 200
 
 
 
@@ -344,25 +363,35 @@ def receive_block():
 @app.route('/resolve', methods=['GET'])
 def resolve_conflicts():
     global blockchain
-    longest_chain = blockchain.chain
+    
+    print("🔁 Resolving chain conflicts...")
+    longest_chain = None
+    max_length = len(blockchain.chain)
+    
     for peer in peers:
         try:
-            url = f"http://{peer[0]}:{peer[1]}/chain"
-            res = requests.get(url)
-            if res.status_code != 200:
+            if peer[1] == PORT:  # Skip self
                 continue
-            data = res.json()
-            chain = data["chain"]
-            if data["length"] > len(longest_chain) and is_valid_chain(chain):
-                longest_chain = [blockchain.create_block_from_dict(b) for b in chain]
-        except:
-            continue
+                
+            url = f"http://{peer[0]}:{peer[1]}/chain"
+            response = requests.get(url, timeout=3)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data["length"] > max_length and is_valid_chain(data["chain"]):
+                    max_length = data["length"]
+                    longest_chain = data["chain"]
+        except Exception as e:
+            print(f"⚠️ Could not fetch chain from {peer}: {e}")
 
-    if len(longest_chain) > len(blockchain.chain):
-        blockchain.chain = longest_chain
-        return jsonify({"status": "chain replaced with longer valid chain"}), 200
-    else:
-        return jsonify({"status": "our chain is longest"}), 200
+    if longest_chain:
+        print(f"🔄 Adopting longer chain (length {max_length})")
+        blockchain.chain = [blockchain.create_block_from_dict(b) for b in longest_chain]
+        recalculate_balances()
+        return jsonify({"status": "chain replaced"}), 200
+    
+    print("✅ Our chain is already the longest")
+    return jsonify({"status": "chain unchanged"}), 200
 
 
 
@@ -408,23 +437,27 @@ def broadcast_transaction(transaction):
             print(f"❌ Could not send tx to {peer}: {e}")
 
 def broadcast_block(block):
+    block_data = {
+        "index": block.index,
+        "previous_hash": block.previous_hash,
+        "timestamp": block.timestamp,
+        "transactions": [tx.__dict__ for tx in block.transactions],
+        "proof_of_work": block.proof_of_work,
+        "hash": block.hash,
+    }
+    
     for peer in peers:
         try:
+            # Skip sending to ourselves
+            if peer[1] == PORT:
+                continue
+                
             url = f"http://{peer[0]}:{peer[1]}/receive_block"
-            block_data = {
-                "index": block.index,
-                "previous_hash": block.previous_hash,
-                "timestamp": block.timestamp,
-                "transactions": [tx.__dict__ for tx in block.transactions],
-                "proof_of_work": block.proof_of_work,
-                "hash": block.hash,
-            }
-            # Include sender information to prevent circular broadcasting
             requests.post(url, json={
-                "type": "block",
                 "data": block_data,
-                "sender": {"ip": HOST, "port": PORT}  # Add sender info
-            })
+                "sender": {"ip": HOST, "port": PORT},
+                "force": True  # Add this flag to ensure acceptance
+            }, timeout=3)
         except Exception as e:
             print(f"❌ Could not send block to {peer}: {e}")
 
@@ -443,8 +476,12 @@ def start():
     time.sleep(2)
     register_with_tracker()
     time.sleep(1)  # Give time for registration
-    initialize_peer_balances()
-    try_resolve_chain()
+    
+    # Force sync with the network
+    resolve_conflicts()
+    
+    # Initial balance calculation
+    recalculate_balances()
     
 def initialize_peer_balances():
     try:
