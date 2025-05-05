@@ -187,17 +187,18 @@ def is_valid_chain(chain_data):
         if curr['previous_hash'] != prev['hash']:
             return False
         
-        # Check proof of work
+        # Check proof of work (must have N leading zeros)
         if not curr['hash'].startswith('0' * blockchain.difficulty):
+            print(f"Block {i} has invalid proof of work: {curr['hash']}")
             return False
         
-        # Recalculate the hash
+        # Recalculate the hash to verify
         block_obj = blockchain.create_block_from_dict(curr)
         if block_obj.hash != curr['hash']:
+            print(f"Block {i} hash verification failed")
             return False
 
     return True
-
 
 
 @app.route('/')
@@ -246,17 +247,30 @@ def add_transaction():
 
 def recalculate_balances():
     global balances
-    # Reset all balances
-    balances = {name: INIT_BALANCE for name in balances}
     
-    # Only process mined transactions
+    # Get all known peers from tracker
+    try:
+        url = f"http://{TRACKER_HOST}:{TRACKER_PORT}/peer_info"
+        res = requests.get(url)
+        if res.status_code == 200:
+            peer_names = [info['name'] for info in res.json().values()]
+            # Initialize all known peers with base balance
+            balances = {name: INIT_BALANCE for name in peer_names}
+    except Exception as e:
+        print(f"⚠️ Could not fetch peer info: {e}")
+        # Fallback to existing balances
+        balances = {name: INIT_BALANCE for name in balances}
+    
+    # Apply all transactions from blockchain
     for block in blockchain.chain:
         for tx in block.transactions:
+            # Ensure sender and receiver exist
             if tx.sender not in balances:
                 balances[tx.sender] = INIT_BALANCE
             if tx.receiver not in balances:
                 balances[tx.receiver] = INIT_BALANCE
                 
+            # Apply transaction
             balances[tx.sender] -= tx.amount
             balances[tx.receiver] += tx.amount
 
@@ -310,27 +324,28 @@ def receive_block():
     sender = data.get("sender")
     force = data.get("force", False)
 
-    # Skip validation if forced (for initial sync)
-    if not force:
-        # [Keep all your existing validation checks...]
-        pass
+    # Check if block already exists
+    if any(block.hash == block_data["hash"] for block in blockchain.chain):
+        return jsonify({"status": "block already exists"}), 200
 
     new_block = blockchain.create_block_from_dict(block_data)
     
-    # Always add the block if it's the next in sequence
+    # Validate proof of work (must have leading zeros)
+    if not new_block.hash.startswith('0' * blockchain.difficulty):
+        return jsonify({"status": "invalid proof of work"}), 400
+
+    # Normal case - block extends our chain
     if new_block.previous_hash == blockchain.get_last_block().hash:
         blockchain.add_block(new_block)
-        # Remove any included transactions from pending
         blockchain.current_transactions = [
             tx for tx in blockchain.current_transactions
             if tx not in new_block.transactions
         ]
         recalculate_balances()
         return jsonify({"status": "block added"}), 200
-    else:
-        # If not the next block, trigger chain resolution
-        resolve_conflicts()
-        return jsonify({"status": "chain resolution triggered"}), 200
+    
+    # Fork resolution
+    return jsonify({"status": "fork detected - resolving"}), 200
 
 
 
@@ -464,11 +479,11 @@ def start():
     register_with_tracker()
     time.sleep(1)  # Give time for registration
     
-    # Use application context for resolve_conflicts
+    # Sync with network and get latest blockchain
     with app.app_context():
         resolve_conflicts()
     
-    # Initial balance calculation
+    # Calculate balances based on actual blockchain state
     recalculate_balances()
     
 def initialize_peer_balances():
