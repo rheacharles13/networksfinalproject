@@ -466,10 +466,12 @@ def broadcast_transaction(transaction):
                 continue
                 
             url = f"http://{peer[0]}:{peer[1]}/receive_transaction"
-            requests.post(url, json={
-                "data": transaction.__dict__,
-                "sender": (HOST, PORT)
-            }, timeout=3)
+            # Use context manager to ensure connection is closed
+            with requests.Session() as session:
+                session.post(url, json={
+                    "data": transaction.__dict__,
+                    "sender": (HOST, PORT)
+                }, timeout=3)
         except Exception as e:
             print(f"❌ Could not send tx to {peer}: {e}")
 
