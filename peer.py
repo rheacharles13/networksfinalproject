@@ -231,27 +231,19 @@ def add_transaction():
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
 
-    # Initialize balances if needed
+    # Initialize balances if needed (for display only)
     if sender not in balances:
         balances[sender] = INIT_BALANCE
     if receiver not in balances:
         balances[receiver] = INIT_BALANCE
         
+    # Just store the transaction locally - no broadcasting
     tx = Transaction(sender, receiver, amount)
-    
-    # Verify sender has sufficient balance
-    if get_effective_balance(sender) < amount:
-        return "Insufficient funds", 400
-        
     if tx not in blockchain.current_transactions:
         blockchain.current_transactions.append(tx)
-        # Broadcast to all peers
-        broadcast_transaction(tx)
     else:
         print("Transaction already in pending pool")
     return redirect("/")
-
-
 
 def recalculate_balances():
     global balances
@@ -312,37 +304,18 @@ def update_peers():
     return jsonify({"status": "ok"}), 200
 
 
+
 @app.route('/receive_transaction', methods=['POST'])
 def receive_transaction():
-    tx_data = request.get_json()
-    if not tx_data or "data" not in tx_data:
-        return jsonify({"status": "invalid data"}), 400
-        
-    tx = Transaction(**tx_data["data"])
+    tx_data = request.get_json()["data"]
+    tx = Transaction(**tx_data)
     
     # Check if transaction already exists
     if tx in blockchain.current_transactions:
         return jsonify({"status": "transaction already exists"}), 200
         
-    # Verify sender has sufficient balance
-    sender_balance = get_effective_balance(tx.sender)
-    if sender_balance < tx.amount:
-        return jsonify({"status": "insufficient funds"}), 400
-        
     blockchain.current_transactions.append(tx)
-    
-    # Broadcast to other peers (except the one who sent it to us)
-    sender_peer = tx_data.get("sender")
-    for peer in peers:
-        if peer != sender_peer:  # Don't send back to original sender
-            try:
-                url = f"http://{peer[0]}:{peer[1]}/receive_transaction"
-                requests.post(url, json={"data": tx.__dict__, "sender": (HOST, PORT)})
-            except Exception as e:
-                print(f"⚠️ Could not forward tx to {peer}: {e}")
-    
     return jsonify({"status": "received"}), 200
-
 
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
@@ -457,16 +430,8 @@ def register_with_tracker():
 def broadcast_transaction(transaction):
     for peer in peers:
         try:
-            if peer[1] == PORT:  # Skip self
-                continue
-                
             url = f"http://{peer[0]}:{peer[1]}/receive_transaction"
-            # Use context manager to ensure connection is closed
-            with requests.Session() as session:
-                session.post(url, json={
-                    "data": transaction.__dict__,
-                    "sender": (HOST, PORT)
-                }, timeout=3)
+            requests.post(url, json={"type": "transaction", "data": transaction.__dict__})
         except Exception as e:
             print(f"❌ Could not send tx to {peer}: {e}")
 
@@ -508,19 +473,18 @@ def start():
     
     # Start Flask in a separate thread
     threading.Thread(target=lambda: app.run(host=HOST, port=PORT, debug=False)).start()
-    time.sleep(2)
+    time.sleep(2)  # Give Flask time to start
     
     # Register with tracker
     register_with_tracker()
-    time.sleep(1)
+    time.sleep(1)  # Give time for registration
     
-    # Start network sync thread
-    #threading.Thread(target=sync_with_network, daemon=True).start()
-    
-    # Initial sync
+    # Sync with network and get latest blockchain
     with app.app_context():
         resolve_conflicts()
-        recalculate_balances()
+    
+    # Calculate balances based on actual blockchain state
+    recalculate_balances()
     
 def initialize_peer_balances():
     try:
