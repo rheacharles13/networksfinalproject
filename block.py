@@ -53,6 +53,7 @@ class Blockchain:
             block = Block(index, previous_hash, timestamp, self.current_transactions, proof_of_work)
         self.add_block(block)
         self.current_transactions = []
+        return block
 
     def proof_of_work(self, index, previous_hash, timestamp):
         # This method finds a valid proof of work for a given block.
