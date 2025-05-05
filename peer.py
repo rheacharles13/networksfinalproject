@@ -206,7 +206,7 @@ def add_transaction():
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
 
-    # Initialize balances if needed
+    # Initialize balances if they don't exist
     if sender not in balances:
         balances[sender] = INIT_BALANCE
     if receiver not in balances:
@@ -214,11 +214,11 @@ def add_transaction():
         
     if balances[sender] >= amount:
         tx = Transaction(sender, receiver, amount)
-        # Only add if not already in pending transactions
-        if tx not in blockchain.current_transactions:
-            blockchain.current_transactions.append(tx)
-            broadcast_transaction(tx)
-            # DON'T update balances here - wait for block confirmation
+        blockchain.current_transactions.append(tx)
+        broadcast_transaction(tx)
+        # Update temporary balances
+        balances[sender] -= amount
+        balances[receiver] += amount
     else:
         print(f"{sender} doesn't have enough swipes!")
     return redirect("/")
@@ -252,21 +252,9 @@ def recalculate_balances():
 
 @app.route('/mine')
 def mine():
-    if not blockchain.current_transactions:
-        return "No transactions to mine", 400
-        
-    # Mine the block
     blockchain.mine()
-    
-    # Get the last block (the one just mined)
-    new_block = blockchain.get_last_block()
-    
-    # Recalculate balances based on blockchain state
     recalculate_balances()
-    
-    # Broadcast the new block to all peers
-    broadcast_block(new_block)
-    
+    broadcast_block(blockchain.get_last_block())
     return redirect("/")
 
 @app.route('/update_peers', methods=['POST'])
@@ -308,26 +296,7 @@ def receive_block():
 
 
 
-def is_valid_block(block):
-    # Check proof of work
-    if not block.hash.startswith('0' * blockchain.difficulty):
-        return False
-    
-    # Check transaction validity
-    temp_balances = balances.copy()
-    for tx in block.transactions:
-        if tx.sender not in temp_balances:
-            temp_balances[tx.sender] = INIT_BALANCE
-        if tx.receiver not in temp_balances:
-            temp_balances[tx.receiver] = INIT_BALANCE
-            
-        if temp_balances[tx.sender] < tx.amount:
-            return False
-            
-        temp_balances[tx.sender] -= tx.amount
-        temp_balances[tx.receiver] += tx.amount
-    
-    return True
+
     
 
 @app.route('/receive_block', methods=['POST'])
@@ -341,24 +310,50 @@ def receive_block():
         return jsonify({"status": "block already exists"}), 200
 
     new_block = blockchain.create_block_from_dict(block_data)
-    
-    # Validate the block
-    if not is_valid_block(new_block):
-        return jsonify({"status": "invalid block"}), 400
+    last_block = blockchain.get_last_block()
 
-    # Add the block
-    blockchain.add_block(new_block)
-    
-    # Remove included transactions from pending
-    blockchain.current_transactions = [
-        tx for tx in blockchain.current_transactions
-        if tx not in new_block.transactions
-    ]
-    
-    # Recalculate balances based on new chain state
-    recalculate_balances()
-    
-    return jsonify({"status": "block added"}), 200
+    # Validate block structure
+    if not all(hasattr(new_block, key) for key in REQUIRED_KEYS):
+        return jsonify({"status": "invalid block structure"}), 400
+
+    # Validate proof of work
+    if not new_block.hash.startswith('0' * blockchain.difficulty):
+        return jsonify({"status": "invalid proof"}), 400
+
+    # Normal case - block extends our chain
+    if new_block.previous_hash == last_block.hash:
+        blockchain.add_block(new_block)
+        # Remove transactions from current_transactions
+        blockchain.current_transactions = [
+            tx for tx in blockchain.current_transactions
+            if tx not in new_block.transactions
+        ]
+        return jsonify({"status": "block added"}), 200
+
+    # Fork resolution (keep your existing fork resolution code)
+  
+    # Fork detected – attempt resolution
+    if not sender:
+        return jsonify({"status": "missing sender info"}), 400
+
+    try:
+        url = f"http://{sender['ip']}:{sender['port']}/chain"
+        res = requests.get(url)
+        if res.status_code != 200:
+            return jsonify({"status": "chain fetch failed"}), 502
+
+        peer_chain_data = res.json()["chain"]
+        peer_chain_len = res.json()["length"]
+
+        if peer_chain_len > len(blockchain.chain) and is_valid_chain(peer_chain_data):
+            blockchain.chain = [blockchain.create_block_from_dict(b) for b in peer_chain_data]
+            return jsonify({"status": "fork resolved – chain replaced"}), 200
+        else:
+            return jsonify({"status": "peer chain invalid or not longer"}), 409
+
+    except Exception as e:
+        return jsonify({"status": "fork resolution error", "error": str(e)}), 500
+
 
 @app.route('/resolve', methods=['GET'])
 def resolve_conflicts():
@@ -464,8 +459,7 @@ def start():
     time.sleep(1)  # Give time for registration
     initialize_peer_balances()
     try_resolve_chain()
-
-
+    
 def initialize_peer_balances():
     try:
         # Get peer info from tracker
