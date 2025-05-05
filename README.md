@@ -4,6 +4,8 @@
 
 This is a minimal blockchain implementation in Python that uses Flask-based peer-to-peer networking. This guide includes setup instructions for deploying the system on **Google Cloud VMs**, with one tracker and three peers.
 
+![Test 3.1](./readme-images/test-case-3.1.png)
+
 ---
 
 ## Project Structure
