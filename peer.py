@@ -9,8 +9,10 @@ import sys
 
 app = Flask(__name__)
 HOST = "0.0.0.0"
-PORT = 5002  # Change for each peer
-PEER_NAME = f"peer-{PORT}"
+# PORT = 5002  # Change for each peer
+PORT = int(sys.argv[2])  # Convert port to integer
+PEER_NAME = f"peer-{PORT}"  # Name based on port
+
 TRACKER_HOST = sys.argv[1]
 #socket
 #
@@ -447,7 +449,6 @@ def start():
     register_with_tracker()
 """ 
 
-# Modify the start function to initialize balances for all known peers
 def start():
     # Initialize our own balance
     balances[PEER_NAME] = INIT_BALANCE
@@ -459,6 +460,7 @@ def start():
     initialize_peer_balances()
     try_resolve_chain()
 
+    
 def initialize_peer_balances():
     try:
         # Get peer info from tracker
