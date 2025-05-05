@@ -361,16 +361,15 @@ def receive_block():
     # Check if block already exists
     if any(block.hash == block_data["hash"] for block in blockchain.chain):
         # Remove any transactions that are in this block
-        # blockchain.current_transactions = [
-        #     tx for tx in blockchain.current_transactions
-        #     if not any(
-        #         block_tx.sender == tx.sender and 
-        #         block_tx.receiver == tx.receiver and
-        #         block_tx.amount == tx.amount
-        #         for block_tx in [Transaction(**tx_data) for tx_data in block_data["transactions"]]
-        #     )
-        # ]
-        blockchain.current_transactions = []
+        blockchain.current_transactions = [
+            tx for tx in blockchain.current_transactions
+            if not any(
+                block_tx.sender == tx.sender and 
+                block_tx.receiver == tx.receiver and
+                block_tx.amount == tx.amount
+                for block_tx in [Transaction(**tx_data) for tx_data in block_data["transactions"]]
+            )
+        ]
         return jsonify({"status": "block already exists"}), 200
 
     try:
@@ -386,10 +385,11 @@ def receive_block():
     if new_block.previous_hash == blockchain.get_last_block().hash:
         blockchain.add_block(new_block)
         # Remove transactions that are now in the block
-        blockchain.current_transactions = [
-            tx for tx in blockchain.current_transactions
-            if tx not in new_block.transactions
-        ]
+        # blockchain.current_transactions = [
+        #     tx for tx in blockchain.current_transactions
+        #     if tx not in new_block.transactions
+        # ]
+        blockchain.current_transactions = []
         recalculate_balances()
         return jsonify({"status": "block added"}), 200
     
