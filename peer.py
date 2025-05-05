@@ -31,140 +31,373 @@ HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ peer_name }}</title>
+    <title>{{ peer_name }} - Blockchain Peer</title>
     <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2ecc71;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --danger: #e74c3c;
+            --success: #27ae60;
+            --warning: #f39c12;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: #f4f4f4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
             color: #333;
+            line-height: 1.6;
         }
-        h2 {
-            color: #2c3e50;
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
         }
-        h3 {
-            margin-top: 30px;
-            color: #34495e;
+        
+        header {
+            background-color: var(--dark);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        ul {
-            background: #fff;
-            padding: 15px;
-            border-radius: 5px;
-            list-style-type: none;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        
+        h1, h2, h3 {
+            margin-top: 0;
         }
-        li {
+        
+        h1 {
+            font-size: 2.2rem;
             margin-bottom: 10px;
-            padding: 10px;
-            background: #ecf0f1;
-            border-left: 5px solid #3498db;
         }
-        form {
-            background: #fff;
+        
+        h2 {
+            color: var(--dark);
+            font-size: 1.8rem;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        
+        h3 {
+            color: var(--dark);
+            font-size: 1.4rem;
+            margin: 25px 0 15px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .transaction-list, .block-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .transaction-item, .block-item {
+            background: white;
+            border-left: 4px solid var(--primary);
+            margin-bottom: 10px;
             padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: inline-block;
-            margin-bottom: 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 3px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
+        
+        .transaction-item:hover, .block-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .block-item {
+            border-left-color: var(--secondary);
+        }
+        
+        .transaction-details, .block-details {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 8px;
+        }
+        
+        .balance-card {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .balance-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        .balance-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .balance-amount {
+            font-size: 1.2rem;
+        }
+        
+        .balance-positive {
+            color: var(--success);
+        }
+        
+        .balance-negative {
+            color: var(--danger);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
         input[type="text"],
         input[type="number"] {
-            width: 200px;
-            padding: 8px;
-            margin: 5px 0;
-            border: 1px solid #ccc;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
             border-radius: 4px;
+            font-size: 1rem;
+            transition: border 0.3s;
         }
-        input[type="submit"] {
-            background-color: #27ae60;
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--primary);
             color: white;
             border: none;
-            padding: 10px 15px;
+            padding: 12px 20px;
             border-radius: 4px;
             cursor: pointer;
-        }
-        input[type="submit"]:hover {
-            background-color: #219150;
-        }
-        a {
-            display: inline-block;
-            margin-top: 10px;
+            font-size: 1rem;
+            font-weight: 600;
             text-decoration: none;
-            color: #2980b9;
+            transition: background-color 0.3s;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-success {
+            background-color: var(--success);
+        }
+        
+        .btn-success:hover {
+            background-color: #219955;
+        }
+        
+        .btn-warning {
+            background-color: var(--warning);
+        }
+        
+        .btn-warning:hover {
+            background-color: #e67e22;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .empty-state {
+            color: #777;
+            text-align: center;
+            padding: 30px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        
+        .tx-arrow {
+            color: var(--primary);
             font-weight: bold;
-            padding: 10px 15px;
-            background-color: #ecf0f1;
-            border-radius: 4px;
+            margin: 0 5px;
         }
-        a:hover {
-            text-decoration: underline;
-            background-color: #d6eaf8;
+        
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: #eee;
+            color: #555;
         }
-        .balance-positive { color: green; }
-        .balance-negative { color: red; }
+        
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .block-index {
+            font-weight: bold;
+            color: var(--dark);
+        }
+        
+        .block-hash {
+            font-family: monospace;
+            color: #666;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
-    <h2>{{ peer_name }}</h2>
-
-    <h3>Balances</h3>
-    <ul>
-        {% for peer, balance in balances.items() %}
-            <li>
-                <strong>{{ peer }}:</strong> 
-                <span class="{% if balance >= 0 %}balance-positive{% else %}balance-negative{% endif %}">
-                    {{ balance }}
-                </span>
-            </li>
-        {% endfor %}
-    </ul>
-
+    <header>
+        <div class="container">
+            <h1>{{ peer_name }}</h1>
+            <p>Blockchain Node</p>
+        </div>
+    </header>
     
-
-    <h3>Pending Transactions</h3>
-    <ul>
-        {% for tx in pending_txs %}
-        <li>
-            {{ tx.sender }} → {{ tx.receiver }}: {{ tx.amount }}
-        </li>
-        {% else %}
-        <li>No pending transactions</li>
-        {% endfor %}
-    </ul>
-
-    <h3>Blockchain</h3>
-    <ul>
-        {% for block in chain %}
-            <li>
-                <strong>Index:</strong> {{ block.index }} |
-                <strong>Hash:</strong> {{ block.hash[:10] }}... |
-                <strong>TXs:</strong> {{ block.transactions|length }}
-                {% if block.transactions %}
-                <ul>
-                    {% for tx in block.transactions %}
-                    <li>
-                        {{ tx.sender }} → {{ tx.receiver }}: {{ tx.amount }}
+    <main class="container">
+        <section>
+            <h2>Network Balances</h2>
+            <div class="card">
+                {% if balances %}
+                <div class="balance-card">
+                    {% for peer, balance in balances.items() %}
+                    <div class="balance-item">
+                        <div class="balance-name">{{ peer }}</div>
+                        <div class="balance-amount {% if balance >= 0 %}balance-positive{% else %}balance-negative{% endif %}">
+                            {{ balance }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">No balance information available</div>
+                {% endif %}
+            </div>
+        </section>
+        
+        <section>
+            <h2>Pending Transactions</h2>
+            <div class="card">
+                {% if blockchain.current_transactions %}
+                <ul class="transaction-list">
+                    {% for tx in blockchain.current_transactions %}
+                    <li class="transaction-item">
+                        <div>
+                            <span class="status-badge">Pending</span>
+                            <strong>{{ tx.sender }}</strong> 
+                            <span class="tx-arrow">→</span> 
+                            <strong>{{ tx.receiver }}</strong>
+                        </div>
+                        <div class="transaction-details">
+                            Amount: {{ tx.amount }} | 
+                            Not yet confirmed in a block
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>
+                {% else %}
+                <div class="empty-state">No pending transactions</div>
                 {% endif %}
-            </li>
-        {% endfor %}
-    </ul>
-
-    <h3>Add Transaction</h3>
-    <form method="POST" action="/add_transaction">
-        Sender: <input name="sender" required><br>
-        Receiver: <input name="receiver" required><br>
-        Amount: <input name="amount" type="number" required><br>
-        <input type="submit" value="Submit">
-    </form>
-
-    <h3><a href="/mine">⛏️ Mine New Block</a></h3>
-    <h3><a href="/peers">🔗 View Peers</a></h3>
+            </div>
+        </section>
+        
+        <section>
+            <h2>Blockchain</h2>
+            {% if blockchain.chain %}
+            <ul class="block-list">
+                {% for block in blockchain.chain|reverse %}
+                <li class="block-item">
+                    <div class="block-header">
+                        <span class="block-index">Block #{{ block.index }}</span>
+                        <span class="status-badge">Confirmed</span>
+                    </div>
+                    <div class="block-hash">Hash: {{ block.hash[:16] }}...</div>
+                    
+                    {% if block.transactions %}
+                    <h3>Transactions ({{ block.transactions|length }})</h3>
+                    <ul class="transaction-list">
+                        {% for tx in block.transactions %}
+                        <li class="transaction-item">
+                            <div>
+                                <strong>{{ tx.sender }}</strong> 
+                                <span class="tx-arrow">→</span> 
+                                <strong>{{ tx.receiver }}</strong>
+                            </div>
+                            <div class="transaction-details">
+                                Amount: {{ tx.amount }} | 
+                                Confirmed in block {{ block.index }}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="empty-state">No transactions in this block</div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="card">
+                <div class="empty-state">Blockchain is empty</div>
+            </div>
+            {% endif %}
+        </section>
+        
+        <section>
+            <h2>Create Transaction</h2>
+            <div class="card">
+                <form method="POST" action="/add_transaction">
+                    <div class="form-group">
+                        <label for="sender">Sender:</label>
+                        <input type="text" id="sender" name="sender" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="receiver">Receiver:</label>
+                        <input type="text" id="receiver" name="receiver" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="amount">Amount:</label>
+                        <input type="number" id="amount" name="amount" min="1" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">Submit Transaction</button>
+                </form>
+            </div>
+        </section>
+        
+        <div class="action-buttons">
+            <a href="/mine" class="btn btn-warning">⛏️ Mine New Block</a>
+            <a href="/peers" class="btn">🔗 View Network Peers</a>
+        </div>
+    </main>
 </body>
-</html> 
-"""
+</html>
 
 
 REQUIRED_KEYS = ['hash', 'previous_hash']
