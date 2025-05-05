@@ -8,13 +8,21 @@ This is a minimal blockchain implementation in Python that uses Flask-based peer
 
 ## Project Structure
 .
+
 ├── block.py              # Block and Blockchain classes
+
 ├── transaction.py        # Transaction structure
+
 ├── p2p.py                # Peer node (blockchain logic + Flask server)
+
 ├── tracker.py            # Central tracker server
+
 ├── peer_manager.py       # Defines utility for managing peer node list
+
 ├── DESIGN.md             # Describes blockchain and p2p design
+
 ├── TESTING.md            # Describes set of tests we ran 
+
 └── README.md             # Explains code structure and how to compile
 
 # Requirements
