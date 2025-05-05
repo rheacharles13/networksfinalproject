@@ -425,11 +425,12 @@ def handle_chain_resolution(new_block):
         print(f"🔄 Adopting longer chain (length {len(longest_chain)})")
         blockchain.chain = longest_chain
         # Re-process pending transactions (remove any that are now in blocks)
-        for block in blockchain.chain:
-            blockchain.current_transactions = [
-                tx for tx in blockchain.current_transactions
-                if tx not in block.transactions
-            ]
+        # for block in blockchain.chain:
+        #     blockchain.current_transactions = [
+        #         tx for tx in blockchain.current_transactions
+        #         if tx not in block.transactions
+        #     ]
+        blockchain.current_transactions = []
         recalculate_balances()
         return jsonify({"status": "chain replaced"}), 200
     
