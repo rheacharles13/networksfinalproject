@@ -123,7 +123,16 @@ HTML = """
             <li>
                 <strong>Index:</strong> {{ block.index }} |
                 <strong>Hash:</strong> {{ block.hash[:10] }}... |
-                <strong>TXs:</strong> {{ block.transactions|length }}
+                <strong>TX Count:</strong> {{ block.transactions|length }}
+                {% if block.transactions %}
+                <ul>
+                    {% for tx in block.transactions %}
+                    <li>
+                        {{ tx.sender }} → {{ tx.receiver }}: {{ tx.amount }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
             </li>
         {% endfor %}
     </ul>
