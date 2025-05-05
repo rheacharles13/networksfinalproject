@@ -210,23 +210,44 @@ def receive_block():
     return jsonify({"status": "block received"}), 200
 """ 
 
+
+
+
+    
+
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
     data = request.get_json()
     block_data = data["data"]
-    sender = data.get("sender")  # Expecting format: {"ip": ..., "port": ...}
+    sender = data.get("sender")
+
+    # Check if block already exists
+    if any(block.hash == block_data["hash"] for block in blockchain.chain):
+        return jsonify({"status": "block already exists"}), 200
 
     new_block = blockchain.create_block_from_dict(block_data)
     last_block = blockchain.get_last_block()
 
-    if new_block.previous_hash == last_block.hash:
-        # Normal case
-        if new_block.hash.startswith('0' * blockchain.difficulty):
-            blockchain.add_block(new_block)
-            return jsonify({"status": "block added"}), 200
-        else:
-            return jsonify({"status": "invalid proof"}), 400
+    # Validate block structure
+    if not all(hasattr(new_block, key) for key in REQUIRED_KEYS):
+        return jsonify({"status": "invalid block structure"}), 400
 
+    # Validate proof of work
+    if not new_block.hash.startswith('0' * blockchain.difficulty):
+        return jsonify({"status": "invalid proof"}), 400
+
+    # Normal case - block extends our chain
+    if new_block.previous_hash == last_block.hash:
+        blockchain.add_block(new_block)
+        # Remove transactions from current_transactions
+        blockchain.current_transactions = [
+            tx for tx in blockchain.current_transactions
+            if tx not in new_block.transactions
+        ]
+        return jsonify({"status": "block added"}), 200
+
+    # Fork resolution (keep your existing fork resolution code)
+  
     # Fork detected – attempt resolution
     if not sender:
         return jsonify({"status": "missing sender info"}), 400
@@ -326,7 +347,12 @@ def broadcast_block(block):
                 "proof_of_work": block.proof_of_work,
                 "hash": block.hash,
             }
-            requests.post(url, json={"type": "block", "data": block_data})
+            # Include sender information to prevent circular broadcasting
+            requests.post(url, json={
+                "type": "block",
+                "data": block_data,
+                "sender": {"ip": HOST, "port": PORT}  # Add sender info
+            })
         except Exception as e:
             print(f"❌ Could not send block to {peer}: {e}")
 
