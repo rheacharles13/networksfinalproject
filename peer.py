@@ -8,19 +8,16 @@ import sys
 
 app = Flask(__name__)
 HOST = "0.0.0.0"
-# PORT = 5002  # Change for each peer
-PORT = int(sys.argv[2])  # Convert port to integer
-PEER_NAME = f"peer-{PORT}"  # Name based on port
+PORT = int(sys.argv[2])
+PEER_NAME = f"peer-{PORT}"
 
 TRACKER_HOST = sys.argv[1]
-#socket
-#
 TRACKER_PORT = 8000
 
 INIT_BALANCE = 150
 
 balances = {}
-# Initialize balances with our own peer
+
 balances[PEER_NAME] = INIT_BALANCE
 
 blockchain = Blockchain(difficulty=2)
@@ -173,7 +170,6 @@ def is_valid_chain(chain_data):
         prev = chain_data[i - 1]
         curr = chain_data[i]
 
-        # Defensive check
         for key in REQUIRED_KEYS:
             if key not in curr:
                 print(f"Block {i} is missing key: {key}")
@@ -182,16 +178,16 @@ def is_valid_chain(chain_data):
                 print(f"Previous block {i-1} is missing key: 'hash'")
                 return False
 
-        # Check hash linkage
+        # check hash linkage
         if curr['previous_hash'] != prev['hash']:
             return False
         
-        # Check proof of work (must have N leading zeros)
+        # check proof of work (must have N difficulty leading zeros)
         if not curr['hash'].startswith('0' * blockchain.difficulty):
             print(f"Block {i} has invalid proof of work: {curr['hash']}")
             return False
         
-        # Recalculate the hash to verify
+        # recalculate the hash to verify
         block_obj = blockchain.create_block_from_dict(curr)
         if block_obj.hash != curr['hash']:
             print(f"Block {i} hash verification failed")
@@ -210,7 +206,7 @@ def index():
         chain=blockchain.chain, 
         peer_name=PEER_NAME,
         balances=balances,
-        pending_txs=blockchain.current_transactions  # Add this line
+        pending_txs=blockchain.current_transactions
     )
 
 def get_effective_balance(peer_name):
@@ -230,19 +226,18 @@ def add_transaction():
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
 
-    # Basic validation
     if amount <= 0:
         return "Amount must be positive", 400
     if sender == receiver:
         return "Sender and receiver must be different", 400
         
-    # Initialize balances if needed
+    # initialize balances if needed
     if sender not in balances:
         balances[sender] = INIT_BALANCE
     if receiver not in balances:
         balances[receiver] = INIT_BALANCE
         
-    # Check sender balance (consider both confirmed and pending)
+    # check sender balance
     confirmed_balance = get_effective_balance(sender)
     pending_debits = sum(
         tx.amount for tx in blockchain.current_transactions
@@ -254,7 +249,7 @@ def add_transaction():
     tx = Transaction(sender, receiver, amount)
     if tx not in blockchain.current_transactions:
         blockchain.current_transactions.append(tx)
-        # Broadcast to network
+        # broadcast to network
         threading.Thread(target=broadcast_transaction, args=(tx,)).start()
     else:
         print("Transaction already in pending pool")
@@ -264,29 +259,29 @@ def add_transaction():
 def recalculate_balances():
     global balances
     
-    # Get all known peers from tracker
+    # get all known peers from tracker
     try:
         url = f"http://{TRACKER_HOST}:{TRACKER_PORT}/peer_info"
         res = requests.get(url)
         if res.status_code == 200:
             peer_names = [info['name'] for info in res.json().values()]
-            # Initialize all known peers with base balance
+            # initialize all known peers with base balance
             balances = {name: INIT_BALANCE for name in peer_names}
     except Exception as e:
         print(f"⚠️ Could not fetch peer info: {e}")
-        # Fallback to existing balances
+
         balances = {name: INIT_BALANCE for name in balances}
     
-    # Apply all transactions from blockchain
+    # apply all transactions from blockchain
     for block in blockchain.chain:
         for tx in block.transactions:
-            # Ensure sender and receiver exist
+            # ensure sender and receiver exist
             if tx.sender not in balances:
                 balances[tx.sender] = INIT_BALANCE
             if tx.receiver not in balances:
                 balances[tx.receiver] = INIT_BALANCE
                 
-            # Apply transaction
+            # apply transaction
             balances[tx.sender] -= tx.amount
             balances[tx.receiver] += tx.amount
 
@@ -296,22 +291,21 @@ def mine():
     if not blockchain.current_transactions:
         return "No transactions to mine", 400
         
-    # Mine all pending transactions at once
+    # mine all pending transactions at once
     last_block = blockchain.get_last_block()
     new_block = blockchain.mine()
     
-    # Check if mining was successful
+    # check if mining was successful
     if new_block is None:
         return "Mining failed - no new block created", 400
     
-    # Verify we actually mined a new block
+    # verify we actually mined a new block
     if new_block.index == last_block.index:
         return "Mining failed - same block index", 400
     
-    # Recalculate balances based on new blockchain state
     recalculate_balances()
     
-    # Broadcast the new block to all peers
+    # broadcast the new block to all peers
     broadcast_block(new_block)
     
     return redirect("/")
@@ -322,7 +316,7 @@ def update_peers():
     data = request.get_json()
     peers = set(tuple(p) for p in data.get("peers", []))
     
-    # Initialize balances for new peers
+    # initialize balances for new peers
     for peer_name in data.get("peer_names", []):
         if peer_name not in balances:
             balances[peer_name] = INIT_BALANCE
@@ -338,14 +332,13 @@ def receive_transaction():
         
     tx = Transaction(**tx_data["data"])
     
-    # Check if transaction already exists
+    # check if transaction already exists
     if tx in blockchain.current_transactions:
         return jsonify({"status": "transaction already exists"}), 200
         
-    # Validate transaction (check balances, etc.)
+    # validate transaction
     blockchain.current_transactions.append(tx)
     
-    # Optionally re-broadcast to other peers
     if not tx_data.get("from_peer", False):
         threading.Thread(target=broadcast_transaction, args=(tx,)).start()
         
@@ -358,7 +351,7 @@ def receive_block():
     sender = data.get("sender")
     force = data.get("force", False)
 
-    # Check if block already exists
+    # check if block already exists
     if any(block.hash == block_data["hash"] for block in blockchain.chain):
         # Remove any transactions that are in this block
         blockchain.current_transactions = [
@@ -377,34 +370,31 @@ def receive_block():
     except Exception as e:
         return jsonify({"status": f"invalid block data: {str(e)}"}), 400
     
-    # Validate proof of work
+    # validate proof of work
     if not new_block.hash.startswith('0' * blockchain.difficulty):
         return jsonify({"status": "invalid proof of work"}), 400
 
-    # Case 1: Block extends our current chain
+    # case 1: vlock extends current chain
     if new_block.previous_hash == blockchain.get_last_block().hash:
         blockchain.add_block(new_block)
-        # Remove transactions that are now in the block
-        # blockchain.current_transactions = [
-        #     tx for tx in blockchain.current_transactions
-        #     if tx not in new_block.transactions
-        # ]
+        
         blockchain.current_transactions = []
         recalculate_balances()
         return jsonify({"status": "block added"}), 200
     
-    # Case 2: Block causes a fork - need to resolve
+    # case 2: block causes a fork
     return handle_chain_resolution(new_block)
 
 def handle_chain_resolution(new_block):
     print("⚠️ Fork detected - resolving chain...")
     
-    # Get all peer chains to find the longest valid one
+    # get all peer chains to find the longest valid one
     all_chains = [blockchain.chain]
     
     for peer in peers:
         try:
-            if peer[1] == PORT:  # Skip self
+            # skip self 
+            if peer[1] == PORT:
                 continue
                 
             url = f"http://{peer[0]}:{peer[1]}/chain"
@@ -418,18 +408,12 @@ def handle_chain_resolution(new_block):
         except Exception as e:
             print(f"⚠️ Could not fetch chain from {peer}: {e}")
 
-    # Find the longest valid chain
+    # find the longest valid chain
     longest_chain = max(all_chains, key=len)
     
     if len(longest_chain) > len(blockchain.chain):
         print(f"🔄 Adopting longer chain (length {len(longest_chain)})")
         blockchain.chain = longest_chain
-        # Re-process pending transactions (remove any that are now in blocks)
-        # for block in blockchain.chain:
-        #     blockchain.current_transactions = [
-        #         tx for tx in blockchain.current_transactions
-        #         if tx not in block.transactions
-        #     ]
         blockchain.current_transactions = []
         recalculate_balances()
         return jsonify({"status": "chain replaced"}), 200
@@ -446,7 +430,8 @@ def resolve_conflicts():
     
     for peer in peers:
         try:
-            if peer[1] == PORT:  # Skip self
+            # skip self
+            if peer[1] == PORT:
                 continue
                 
             url = f"http://{peer[0]}:{peer[1]}/chain"
@@ -464,8 +449,8 @@ def resolve_conflicts():
         print(f"🔄 Adopting longer chain (length {max_length})")
         blockchain.chain = [blockchain.create_block_from_dict(b) for b in longest_chain]
         recalculate_balances()
-        # Return appropriate response based on context
-        if request:  # If called as a route
+        
+        if request: 
             return jsonify({"status": "chain replaced"}), 200
         return True
     
@@ -473,8 +458,6 @@ def resolve_conflicts():
     if request:  # If called as a route
         return jsonify({"status": "chain unchanged"}), 200
     return False
-
-
 
 @app.route('/peers')
 def show_peers():
@@ -504,7 +487,7 @@ def register_with_tracker():
         payload = {"name": PEER_NAME, "port": PORT}
         res = requests.post(url, json=payload)
         print(f"✅ Registered with tracker: {res.json()}")
-        # Initialize balance for this peer
+        # initialize balance for this peer
         balances[PEER_NAME] = INIT_BALANCE
     except Exception as e:
         print(f"❌ Could not register: {e}")
@@ -512,13 +495,14 @@ def register_with_tracker():
 def broadcast_transaction(transaction):
     for peer in peers:
         try:
-            if peer[1] == PORT:  # Skip self
+            # skip self
+            if peer[1] == PORT:
                 continue
                 
             url = f"http://{peer[0]}:{peer[1]}/receive_transaction"
             requests.post(url, json={
                 "data": transaction.__dict__,
-                "from_peer": True  # Prevent broadcast loops
+                "from_peer": True
             }, timeout=3)
         except Exception as e:
             print(f"❌ Could not send tx to {peer}: {e}")
@@ -535,7 +519,6 @@ def broadcast_block(block):
     
     for peer in peers:
         try:
-            # Skip sending to ourselves
             if peer[1] == PORT:
                 continue
                 
@@ -543,7 +526,7 @@ def broadcast_block(block):
             requests.post(url, json={
                 "data": block_data,
                 "sender": {"ip": HOST, "port": PORT},
-                "force": True  # Ensure peers accept valid blocks
+                "force": True  # ensure peers accept valid blocks
             }, timeout=3)
         except Exception as e:
             print(f"❌ Could not send block to {peer}: {e}")
@@ -556,27 +539,27 @@ def start():
 """ 
 
 def start():
-    # Initialize our own balance
+    # initialize own balance
     balances[PEER_NAME] = INIT_BALANCE
     
-    # Start Flask in a separate thread
+    # start Flask in a separate thread
     threading.Thread(target=lambda: app.run(host=HOST, port=PORT, debug=False)).start()
-    time.sleep(2)  # Give Flask time to start
+    time.sleep(2)
     
-    # Register with tracker
+    # register with tracker
     register_with_tracker()
-    time.sleep(1)  # Give time for registration
+    time.sleep(1)
     
-    # Sync with network and get latest blockchain
+    # sync with network and get latest blockchain
     with app.app_context():
         resolve_conflicts()
     
-    # Calculate balances based on actual blockchain state
+    # calculate balances based on blockchain state
     recalculate_balances()
     
 def initialize_peer_balances():
     try:
-        # Get peer info from tracker
+        # get peer info from tracker
         url = f"http://{TRACKER_HOST}:{TRACKER_PORT}/peer_info"
         res = requests.get(url)
         if res.status_code == 200:

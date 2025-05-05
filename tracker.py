@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify
 import requests
 
 app = Flask(__name__)
-peers = []  # Stores (host, port) tuples
-peer_info = {}  # Stores { (host,port): {name: str, initial_balance: int} }
+peers = []  # (host, port)
+peer_info = {}  # { (host,port): {name: str, initial_balance: int} }
 
 @app.route('/register', methods=['POST'])
 def register():
