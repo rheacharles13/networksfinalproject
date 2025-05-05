@@ -119,13 +119,26 @@ HTML = """
         {% endfor %}
     </ul>
 
+    
+
+    <h3>Pending Transactions</h3>
+    <ul>
+        {% for tx in pending_txs %}
+        <li>
+            {{ tx.sender }} → {{ tx.receiver }}: {{ tx.amount }}
+        </li>
+        {% else %}
+        <li>No pending transactions</li>
+        {% endfor %}
+    </ul>
+
     <h3>Blockchain</h3>
     <ul>
         {% for block in chain %}
             <li>
                 <strong>Index:</strong> {{ block.index }} |
                 <strong>Hash:</strong> {{ block.hash[:10] }}... |
-                <strong>TX Count:</strong> {{ block.transactions|length }}
+                <strong>TXs:</strong> {{ block.transactions|length }}
                 {% if block.transactions %}
                 <ul>
                     {% for tx in block.transactions %}
@@ -189,7 +202,6 @@ def is_valid_chain(chain_data):
 
 @app.route('/')
 def index():
-    # Ensure our own peer is in balances if not already present
     if PEER_NAME not in balances:
         balances[PEER_NAME] = INIT_BALANCE
         
@@ -197,7 +209,8 @@ def index():
         HTML, 
         chain=blockchain.chain, 
         peer_name=PEER_NAME,
-        balances=balances  # Pass the balances to the template
+        balances=balances,
+        pending_txs=blockchain.current_transactions  # Add this line
     )
 
 def get_effective_balance(peer_name):
@@ -217,38 +230,33 @@ def add_transaction():
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
 
-    # Initialize balances if they don't exist (but don't update yet)
+    # Initialize balances if needed (for display only)
     if sender not in balances:
         balances[sender] = INIT_BALANCE
     if receiver not in balances:
         balances[receiver] = INIT_BALANCE
         
-    # Check balance without updating (using blockchain state)
-    if get_effective_balance(sender) >= amount:
-        tx = Transaction(sender, receiver, amount)
-        # Only add if not already in pending transactions
-        if tx not in blockchain.current_transactions:
-            blockchain.current_transactions.append(tx)
-            broadcast_transaction(tx)
+    # Just store the transaction locally - no broadcasting
+    tx = Transaction(sender, receiver, amount)
+    if tx not in blockchain.current_transactions:
+        blockchain.current_transactions.append(tx)
     else:
-        print(f"{sender} doesn't have enough swipes!")
+        print("Transaction already in pending pool")
     return redirect("/")
 
 def recalculate_balances():
     global balances
-    # Reset all balances to initial state
+    # Reset all balances
     balances = {name: INIT_BALANCE for name in balances}
     
-    # Replay all confirmed transactions
+    # Only process mined transactions
     for block in blockchain.chain:
         for tx in block.transactions:
-            # Ensure sender and receiver exist
             if tx.sender not in balances:
                 balances[tx.sender] = INIT_BALANCE
             if tx.receiver not in balances:
                 balances[tx.receiver] = INIT_BALANCE
                 
-            # Update balances
             balances[tx.sender] -= tx.amount
             balances[tx.receiver] += tx.amount
 
@@ -257,13 +265,13 @@ def mine():
     if not blockchain.current_transactions:
         return "No transactions to mine", 400
         
-    # Mine the block
+    # Mine all pending transactions at once
     blockchain.mine()
     
     # Recalculate balances based on new blockchain state
     recalculate_balances()
     
-    # Broadcast the new block to all peers
+    # Broadcast the new block (which contains all transactions)
     broadcast_block(blockchain.get_last_block())
     
     return redirect("/")
@@ -282,7 +290,7 @@ def update_peers():
     return jsonify({"status": "ok"}), 200
 
 
-
+"""
 @app.route('/receive_transaction', methods=['POST'])
 def receive_transaction():
     tx_data = request.get_json()["data"]
@@ -294,7 +302,7 @@ def receive_transaction():
         
     blockchain.current_transactions.append(tx)
     return jsonify({"status": "received"}), 200
-
+""" 
 """ 
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
