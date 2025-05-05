@@ -398,7 +398,7 @@ HTML = """
     </main>
 </body>
 </html>
-
+"""
 
 REQUIRED_KEYS = ['hash', 'previous_hash']
 
