@@ -6,7 +6,6 @@ from transaction import Transaction
 import sys
 
 
-
 app = Flask(__name__)
 HOST = "0.0.0.0"
 # PORT = 5002  # Change for each peer
@@ -231,11 +230,26 @@ def add_transaction():
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
 
+    # Basic validation
+    if amount <= 0:
+        return "Amount must be positive", 400
+    if sender == receiver:
+        return "Sender and receiver must be different", 400
+        
     # Initialize balances if needed
     if sender not in balances:
         balances[sender] = INIT_BALANCE
     if receiver not in balances:
         balances[receiver] = INIT_BALANCE
+        
+    # Check sender balance (consider both confirmed and pending)
+    confirmed_balance = get_effective_balance(sender)
+    pending_debits = sum(
+        tx.amount for tx in blockchain.current_transactions
+        if tx.sender == sender
+    )
+    if confirmed_balance - pending_debits < amount:
+        return "Insufficient balance", 400
         
     tx = Transaction(sender, receiver, amount)
     if tx not in blockchain.current_transactions:
@@ -245,6 +259,7 @@ def add_transaction():
     else:
         print("Transaction already in pending pool")
     return redirect("/")
+
 
 def recalculate_balances():
     global balances
@@ -275,6 +290,7 @@ def recalculate_balances():
             balances[tx.sender] -= tx.amount
             balances[tx.receiver] += tx.amount
 
+
 @app.route('/mine')
 def mine():
     if not blockchain.current_transactions:
@@ -284,9 +300,13 @@ def mine():
     last_block = blockchain.get_last_block()
     new_block = blockchain.mine()
     
+    # Check if mining was successful
+    if new_block is None:
+        return "Mining failed - no new block created", 400
+    
     # Verify we actually mined a new block
     if new_block.index == last_block.index:
-        return "Mining failed", 400
+        return "Mining failed - same block index", 400
     
     # Recalculate balances based on new blockchain state
     recalculate_balances()
@@ -343,14 +363,19 @@ def receive_block():
         # Remove any transactions that are in this block
         blockchain.current_transactions = [
             tx for tx in blockchain.current_transactions
-            if not any(block_tx.sender == tx.sender and 
-                      block_tx.receiver == tx.receiver and
-                      block_tx.amount == tx.amount
-                      for block_tx in [Transaction(**tx_data) for tx_data in block_data["transactions"]])
+            if not any(
+                block_tx.sender == tx.sender and 
+                block_tx.receiver == tx.receiver and
+                block_tx.amount == tx.amount
+                for block_tx in [Transaction(**tx_data) for tx_data in block_data["transactions"]]
+            )
         ]
         return jsonify({"status": "block already exists"}), 200
 
-    new_block = blockchain.create_block_from_dict(block_data)
+    try:
+        new_block = blockchain.create_block_from_dict(block_data)
+    except Exception as e:
+        return jsonify({"status": f"invalid block data: {str(e)}"}), 400
     
     # Validate proof of work
     if not new_block.hash.startswith('0' * blockchain.difficulty):
