@@ -304,7 +304,7 @@ def update_peers():
     return jsonify({"status": "ok"}), 200
 
 
-
+""" 
 @app.route('/receive_transaction', methods=['POST'])
 def receive_transaction():
     tx_data = request.get_json()["data"]
@@ -316,6 +316,8 @@ def receive_transaction():
         
     blockchain.current_transactions.append(tx)
     return jsonify({"status": "received"}), 200
+
+"""
 
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
