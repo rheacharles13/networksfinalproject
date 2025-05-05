@@ -281,13 +281,18 @@ def mine():
         return "No transactions to mine", 400
         
     # Mine all pending transactions at once
-    blockchain.mine()
+    last_block = blockchain.get_last_block()
+    new_block = blockchain.mine()
+    
+    # Verify we actually mined a new block
+    if new_block.index == last_block.index:
+        return "Mining failed", 400
     
     # Recalculate balances based on new blockchain state
     recalculate_balances()
     
-    # Broadcast the new block (which contains all transactions)
-    broadcast_block(blockchain.get_last_block())
+    # Broadcast the new block to all peers
+    broadcast_block(new_block)
     
     return redirect("/")
 
@@ -335,17 +340,26 @@ def receive_block():
 
     # Check if block already exists
     if any(block.hash == block_data["hash"] for block in blockchain.chain):
+        # Remove any transactions that are in this block
+        blockchain.current_transactions = [
+            tx for tx in blockchain.current_transactions
+            if not any(block_tx.sender == tx.sender and 
+                      block_tx.receiver == tx.receiver and
+                      block_tx.amount == tx.amount
+                      for block_tx in [Transaction(**tx_data) for tx_data in block_data["transactions"]])
+        ]
         return jsonify({"status": "block already exists"}), 200
 
     new_block = blockchain.create_block_from_dict(block_data)
     
-    # Validate proof of work (must have leading zeros)
+    # Validate proof of work
     if not new_block.hash.startswith('0' * blockchain.difficulty):
         return jsonify({"status": "invalid proof of work"}), 400
 
-    # Normal case - block extends our chain
+    # Case 1: Block extends our current chain
     if new_block.previous_hash == blockchain.get_last_block().hash:
         blockchain.add_block(new_block)
+        # Remove transactions that are now in the block
         blockchain.current_transactions = [
             tx for tx in blockchain.current_transactions
             if tx not in new_block.transactions
@@ -353,16 +367,48 @@ def receive_block():
         recalculate_balances()
         return jsonify({"status": "block added"}), 200
     
-    # Fork resolution
-    return jsonify({"status": "fork detected - resolving"}), 200
+    # Case 2: Block causes a fork - need to resolve
+    return handle_chain_resolution(new_block)
 
-
-
-
+def handle_chain_resolution(new_block):
+    print("⚠️ Fork detected - resolving chain...")
     
+    # Get all peer chains to find the longest valid one
+    all_chains = [blockchain.chain]
+    
+    for peer in peers:
+        try:
+            if peer[1] == PORT:  # Skip self
+                continue
+                
+            url = f"http://{peer[0]}:{peer[1]}/chain"
+            response = requests.get(url, timeout=3)
+            
+            if response.status_code == 200:
+                data = response.json()
+                peer_chain = [blockchain.create_block_from_dict(b) for b in data["chain"]]
+                if is_valid_chain(data["chain"]):
+                    all_chains.append(peer_chain)
+        except Exception as e:
+            print(f"⚠️ Could not fetch chain from {peer}: {e}")
 
-
-
+    # Find the longest valid chain
+    longest_chain = max(all_chains, key=len)
+    
+    if len(longest_chain) > len(blockchain.chain):
+        print(f"🔄 Adopting longer chain (length {len(longest_chain)})")
+        blockchain.chain = longest_chain
+        # Re-process pending transactions (remove any that are now in blocks)
+        for block in blockchain.chain:
+            blockchain.current_transactions = [
+                tx for tx in blockchain.current_transactions
+                if tx not in block.transactions
+            ]
+        recalculate_balances()
+        return jsonify({"status": "chain replaced"}), 200
+    
+    print("✅ Our chain remains the longest")
+    return jsonify({"status": "chain unchanged"}), 200
 
 def resolve_conflicts():
     global blockchain
@@ -470,7 +516,7 @@ def broadcast_block(block):
             requests.post(url, json={
                 "data": block_data,
                 "sender": {"ip": HOST, "port": PORT},
-                "force": True  # Add this flag to ensure acceptance
+                "force": True  # Ensure peers accept valid blocks
             }, timeout=3)
         except Exception as e:
             print(f"❌ Could not send block to {peer}: {e}")
