@@ -251,12 +251,7 @@ def add_transaction():
         print("Transaction already in pending pool")
     return redirect("/")
 
-def sync_with_network():
-    while True:
-        time.sleep(10)  # Sync every 10 seconds
-        with app.app_context():
-            resolve_conflicts()
-            recalculate_balances()
+
 
 def recalculate_balances():
     global balances
@@ -520,7 +515,7 @@ def start():
     time.sleep(1)
     
     # Start network sync thread
-    threading.Thread(target=sync_with_network, daemon=True).start()
+    #threading.Thread(target=sync_with_network, daemon=True).start()
     
     # Initial sync
     with app.app_context():
