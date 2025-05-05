@@ -193,10 +193,17 @@ def update_peers():
     peers = set(tuple(p) for p in data.get("peers", []))
     return jsonify({"status": "ok"}), 200
 
+
+
 @app.route('/receive_transaction', methods=['POST'])
 def receive_transaction():
     tx_data = request.get_json()["data"]
     tx = Transaction(**tx_data)
+    
+    # Check if transaction already exists
+    if tx in blockchain.current_transactions:
+        return jsonify({"status": "transaction already exists"}), 200
+        
     blockchain.current_transactions.append(tx)
     return jsonify({"status": "received"}), 200
 
