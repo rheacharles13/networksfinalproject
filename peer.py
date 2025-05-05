@@ -361,15 +361,16 @@ def receive_block():
     # Check if block already exists
     if any(block.hash == block_data["hash"] for block in blockchain.chain):
         # Remove any transactions that are in this block
-        blockchain.current_transactions = [
-            tx for tx in blockchain.current_transactions
-            if not any(
-                block_tx.sender == tx.sender and 
-                block_tx.receiver == tx.receiver and
-                block_tx.amount == tx.amount
-                for block_tx in [Transaction(**tx_data) for tx_data in block_data["transactions"]]
-            )
-        ]
+        # blockchain.current_transactions = [
+        #     tx for tx in blockchain.current_transactions
+        #     if not any(
+        #         block_tx.sender == tx.sender and 
+        #         block_tx.receiver == tx.receiver and
+        #         block_tx.amount == tx.amount
+        #         for block_tx in [Transaction(**tx_data) for tx_data in block_data["transactions"]]
+        #     )
+        # ]
+        blockchain.current_transactions = []
         return jsonify({"status": "block already exists"}), 200
 
     try:
