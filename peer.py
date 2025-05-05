@@ -337,27 +337,7 @@ def receive_block():
 
     
 
-@app.route('/receive_block', methods=['POST'])
-def receive_block():
-    data = request.get_json()
-    block_data = data["data"]
-    sender = data.get("sender")
 
-    # [Keep existing validation checks...]
-
-    # Add the block
-    blockchain.add_block(new_block)
-    
-    # Remove included transactions from pending
-    blockchain.current_transactions = [
-        tx for tx in blockchain.current_transactions
-        if tx not in new_block.transactions
-    ]
-    
-    # Recalculate balances based on new chain state
-    recalculate_balances()
-    
-    return jsonify({"status": "block added"}), 200
 
 
 @app.route('/resolve', methods=['GET'])
