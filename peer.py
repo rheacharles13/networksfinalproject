@@ -340,7 +340,6 @@ def receive_block():
 
 
 
-@app.route('/resolve', methods=['GET'])
 def resolve_conflicts():
     global blockchain
     
@@ -368,10 +367,15 @@ def resolve_conflicts():
         print(f"🔄 Adopting longer chain (length {max_length})")
         blockchain.chain = [blockchain.create_block_from_dict(b) for b in longest_chain]
         recalculate_balances()
-        return jsonify({"status": "chain replaced"}), 200
+        # Return appropriate response based on context
+        if request:  # If called as a route
+            return jsonify({"status": "chain replaced"}), 200
+        return True
     
     print("✅ Our chain is already the longest")
-    return jsonify({"status": "chain unchanged"}), 200
+    if request:  # If called as a route
+        return jsonify({"status": "chain unchanged"}), 200
+    return False
 
 
 
@@ -452,13 +456,17 @@ def start():
     # Initialize our own balance
     balances[PEER_NAME] = INIT_BALANCE
     
+    # Start Flask in a separate thread
     threading.Thread(target=lambda: app.run(host=HOST, port=PORT, debug=False)).start()
-    time.sleep(2)
+    time.sleep(2)  # Give Flask time to start
+    
+    # Register with tracker
     register_with_tracker()
     time.sleep(1)  # Give time for registration
     
-    # Force sync with the network
-    resolve_conflicts()
+    # Use application context for resolve_conflicts
+    with app.app_context():
+        resolve_conflicts()
     
     # Initial balance calculation
     recalculate_balances()
