@@ -1,6 +1,7 @@
 import hashlib
 import json
 import time
+from transaction import Transaction
 
 
 class Block:
@@ -13,7 +14,14 @@ class Block:
         self.hash = self.compute_hash()
 
     def compute_hash(self):
-        block_string = json.dumps(self.__dict__, sort_keys=True)
+        block_data = {
+            "index": self.index,
+            "previous_hash": self.previous_hash,
+            "timestamp": self.timestamp,
+            "transactions": [str(tx) for tx in self.transactions],
+            "proof_of_work": self.proof_of_work,
+        }
+        block_string = json.dumps(block_data, sort_keys=True)
         return hashlib.sha256(block_string.encode()).hexdigest()
 
 
@@ -37,10 +45,15 @@ class Blockchain:
         index = last_block.index + 1
         previous_hash = last_block.hash
         timestamp = time.time()
-        proof_of_work = self.proof_of_work(index, previous_hash, timestamp)
+        #proof_of_work = self.proof_of_work(index, previous_hash, timestamp)
+        proof_of_work = 0
         block = Block(index, previous_hash, timestamp, self.current_transactions, proof_of_work)
+        while block.hash[:self.difficulty] != "0" * self.difficulty:
+            proof_of_work += 1
+            block = Block(index, previous_hash, timestamp, self.current_transactions, proof_of_work)
         self.add_block(block)
         self.current_transactions = []
+        return block
 
     def proof_of_work(self, index, previous_hash, timestamp):
         # This method finds a valid proof of work for a given block.
@@ -64,6 +77,17 @@ class Blockchain:
             if not current_block.hash.startswith('0' * self.difficulty):
                 return False
         return True
+    
+    def create_block_from_dict(self, data):
+        txs = [Transaction(**tx) if isinstance(tx, dict) else tx for tx in data['transactions']]
+        return Block(
+            index=data['index'],
+            previous_hash=data['previous_hash'],
+            timestamp=data['timestamp'],
+            transactions=txs,
+            proof_of_work=data['proof_of_work']
+        )
+
 
     def get_last_block(self):
         return self.chain[-1]

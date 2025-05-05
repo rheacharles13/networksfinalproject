@@ -1,33 +1,50 @@
 from flask import Flask, request, jsonify
-app = Flask(__name__)
+import requests
 
-peers = set()
+app = Flask(__name__)
+peers = []  # (host, port)
+peer_info = {}  # { (host,port): {name: str, initial_balance: int} }
 
 @app.route('/register', methods=['POST'])
 def register():
-    peer = request.json.get('peer')
-    peers.add(peer)
-    notify_all()
-    return jsonify({'status': 'registered', 'peers': list(peers)})
+    peer_data = request.json
+    peer_host = request.remote_addr
+    peer_port = peer_data['port']
+    peer_name = peer_data['name']
+    
+    peer_tuple = (peer_host, peer_port)
+    if peer_tuple not in peers:
+        peers.append(peer_tuple)
+        peer_info[peer_tuple] = {
+            'name': peer_name,
+            'initial_balance': 150
+        }
+        print(f"📥 Registered: {peer_name} at {peer_host}:{peer_port}")
+        update_all_peers()
+    return jsonify({
+        'status': 'registered',
+        'peers': peers,
+        'initial_balance': 150
+    })
 
-@app.route('/unregister', methods=['POST'])
-def unregister():
-    peer = request.json.get('peer')
-    peers.discard(peer)
-    notify_all()
-    return jsonify({'status': 'unregistered', 'peers': list(peers)})
+@app.route('/peer_info', methods=['GET'])
+def get_peer_info():
+    """Endpoint to get all peer information"""
+    return jsonify({
+        f"{host}:{port}": info 
+        for (host, port), info in peer_info.items()
+    })
 
-@app.route('/peers', methods=['GET'])
-def get_peers():
-    return jsonify(list(peers))
-
-def notify_all():
-    import requests
+def update_all_peers():
     for peer in peers:
         try:
-            requests.post(f'http://{peer}/update_peers', json={'peers': list(peers)})
-        except:
-            continue 
+            url = f"http://{peer[0]}:{peer[1]}/update_peers"
+            requests.post(url, json={
+                "peers": peers,
+                "peer_names": [peer_info[p]['name'] for p in peers]
+            })
+        except Exception as e:
+            print(f"⚠️ Failed to update {peer}: {e}")
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=8000)
