@@ -16,7 +16,9 @@ Alice wants to send Bob 1 meal swipe.
 Alice signs a transaction and broadcasts it.  
 Peers verify Alice has ≥1 swipe and relay the transaction.  
 The block leader includes it in the next block.  
-After consensus, the block is added, and Bob’s balance updates.  
+After consensus, the block is added.
+Peers mine the block and the block chain is updated.
+Finally, Bob's and Alice's balances update.  
 
 # Demo Application Design
 Assuming each peer node runs its own server and local blockchains logic, as well as the fact that peer communication will broadcast new transactions to sync and track across peers, we would want to implement a Python flask server with HTML/CSS/JS to implement the UI. The key pages will be:
