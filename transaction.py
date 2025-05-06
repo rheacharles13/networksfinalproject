@@ -2,7 +2,7 @@ import time
 
 
 class Transaction:
-    """Represents a financial transaction between two parties in the blockchain network.
+    """Represents a swipe transaction between two parties in the blockchain network.
     
     Attributes:
         sender (str): The public key or address of the sender

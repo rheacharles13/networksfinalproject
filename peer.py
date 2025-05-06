@@ -5,6 +5,18 @@ from block import Blockchain
 from transaction import Transaction
 import sys
 
+""" 
+Implements a complete peer node in a blockchain network with:
+- Transaction processing and validation
+- Block mining with proof-of-work
+- Network synchronization and peer discovery
+- Conflict resolution for blockchain forks
+- Balance tracking and verification
+- Web interface for monitoring node status
+
+The peer connects to a central tracker for peer discovery and maintains
+its own copy of the blockchain while communicating with other peers.
+"""
 
 app = Flask(__name__)
 HOST = "0.0.0.0"
@@ -166,6 +178,21 @@ HTML = """
 REQUIRED_KEYS = ['hash', 'previous_hash']
 
 def is_valid_chain(chain_data):
+    """
+    Validate the integrity of a blockchain.
+    
+    Args:
+        chain_data (list): List of block dictionaries to validate
+        
+    Returns:
+        bool: True if chain is valid, False otherwise
+        
+    Validation checks:
+    1. Required fields present in each block
+    2. Correct hash linking between blocks
+    3. Valid proof-of-work (leading zeros)
+    4. Hash recalculation matches stored hash
+    """
     for i in range(1, len(chain_data)):
         prev = chain_data[i - 1]
         curr = chain_data[i]
@@ -198,6 +225,14 @@ def is_valid_chain(chain_data):
 
 @app.route('/')
 def index():
+    """
+    Render the main dashboard showing:
+    - Current peer name
+    - Account balances
+    - Pending transactions
+    - Blockchain status
+    - Transaction submission form
+    """
     if PEER_NAME not in balances:
         balances[PEER_NAME] = INIT_BALANCE
         
@@ -210,7 +245,16 @@ def index():
     )
 
 def get_effective_balance(peer_name):
-    """Calculate balance based on confirmed blocks only"""
+    """
+    Calculate confirmed balance based on blockchain transactions only.
+    
+    Args:
+        peer_name (str): Name of peer to calculate balance for
+        
+    Returns:
+        int: Current confirmed balance (excluding pending transactions)
+    """
+
     balance = INIT_BALANCE
     for block in blockchain.chain:
         for tx in block.transactions:
@@ -222,6 +266,21 @@ def get_effective_balance(peer_name):
 
 @app.route('/add_transaction', methods=['POST'])
 def add_transaction():
+    """
+    Add a new transaction to the network.
+    
+    Required form parameters:
+    - sender: Sending peer name
+    - receiver: Receiving peer name  
+    - amount: Positive integer amount
+    
+    Validates:
+    - Positive amount
+    - Different sender/receiver
+    - Sufficient sender balance
+    
+    Broadcasts valid transactions to all peers.
+    """
     sender = request.form['sender']
     receiver = request.form['receiver']
     amount = int(request.form['amount'])
@@ -257,6 +316,13 @@ def add_transaction():
 
 
 def recalculate_balances():
+    """
+    Recompute all peer balances based on:
+    1. Initial balances from tracker
+    2. Confirmed transactions in blockchain
+    
+    Updates the global balances dictionary.
+    """
     global balances
     
     # get all known peers from tracker
@@ -288,6 +354,17 @@ def recalculate_balances():
 
 @app.route('/mine')
 def mine():
+    """
+    Mine a new block containing pending transactions.
+    
+    Steps:
+    1. Validates there are transactions to mine
+    2. Performs proof-of-work mining
+    3. Updates balances
+    4. Broadcasts new block to network
+    
+    Redirects to dashboard after completion.
+    """
     if not blockchain.current_transactions:
         return "No transactions to mine", 400
         
@@ -312,6 +389,17 @@ def mine():
 
 @app.route('/update_peers', methods=['POST'])
 def update_peers():
+    """
+    Update peer list from tracker/network.
+    
+    Expected JSON:
+    {
+        "peers": [(host, port), ...],
+        "peer_names": [name1, name2, ...] 
+    }
+    
+    Also initializes balances for new peers.
+    """
     global peers, balances
     data = request.get_json()
     peers = set(tuple(p) for p in data.get("peers", []))
@@ -326,6 +414,18 @@ def update_peers():
 
 @app.route('/receive_transaction', methods=['POST'])
 def receive_transaction():
+    """
+    Receive a transaction from another peer.
+    
+    Expected JSON:
+    {
+        "data": transaction_data,
+        "from_peer": bool
+    }
+    
+    Validates and adds transaction if new.
+    Rebroadcasts if not from another peer.
+    """
     tx_data = request.get_json()
     if "data" not in tx_data:
         return jsonify({"status": "invalid data"}), 400
@@ -346,6 +446,21 @@ def receive_transaction():
 
 @app.route('/receive_block', methods=['POST'])
 def receive_block():
+    """
+    Receive a new block from the network.
+    
+    Expected JSON:
+    {
+        "data": block_data,
+        "sender": peer_info,
+        "force": bool
+    }
+    
+    Handles:
+    - Duplicate blocks
+    - Chain extensions
+    - Fork resolution
+    """
     data = request.get_json()
     block_data = data["data"]
     sender = data.get("sender")
@@ -386,6 +501,15 @@ def receive_block():
     return handle_chain_resolution(new_block)
 
 def handle_chain_resolution(new_block):
+    """
+    Resolve blockchain forks by adopting the longest valid chain.
+    
+    Args:
+        new_block (Block): The conflicting block
+        
+    Returns:
+        JSON response with resolution status
+    """
     print("⚠️ Fork detected - resolving chain...")
     
     # get all peer chains to find the longest valid one
@@ -422,6 +546,15 @@ def handle_chain_resolution(new_block):
     return jsonify({"status": "chain unchanged"}), 200
 
 def resolve_conflicts():
+    """
+    Actively check network for longer valid chains.
+    
+    Queries all peers for their chains and adopts the longest valid one.
+    
+    Returns:
+        bool/JSON: True if chain replaced, False otherwise
+                   or JSON response if called via route
+    """
     global blockchain
     
     print("🔁 Resolving chain conflicts...")
@@ -461,10 +594,20 @@ def resolve_conflicts():
 
 @app.route('/peers')
 def show_peers():
+    """Return JSON list of known peers."""
     return jsonify(list(peers))
 
 @app.route('/chain', methods=['GET'])
 def get_chain():
+    """
+    Return the current blockchain.
+    
+    Returns:
+        JSON: {
+            "length": chain_length,
+            "chain": [block1_data, block2_data, ...]
+        }
+    """
     chain = []
     for block in blockchain.chain:
         block_data = {
@@ -482,6 +625,7 @@ def get_chain():
     })
 
 def register_with_tracker():
+    """Register this peer with the central tracker."""
     try:
         url = f"http://{TRACKER_HOST}:{TRACKER_PORT}/register"
         payload = {"name": PEER_NAME, "port": PORT}
@@ -493,6 +637,12 @@ def register_with_tracker():
         print(f"❌ Could not register: {e}")
 
 def broadcast_transaction(transaction):
+    """
+    Broadcast a transaction to all peers.
+    
+    Args:
+        transaction (Transaction): Transaction to broadcast
+    """
     for peer in peers:
         try:
             # skip self
@@ -508,6 +658,12 @@ def broadcast_transaction(transaction):
             print(f"❌ Could not send tx to {peer}: {e}")
 
 def broadcast_block(block):
+    """
+    Broadcast a new block to all peers.
+    
+    Args:
+        block (Block): Block to broadcast
+    """
     block_data = {
         "index": block.index,
         "previous_hash": block.previous_hash,
@@ -539,6 +695,16 @@ def start():
 """ 
 
 def start():
+    """
+    Initialize and start the peer node.
+    
+    Steps:
+    1. Initialize balances
+    2. Start Flask server
+    3. Register with tracker
+    4. Sync with network
+    5. Initialize balances
+    """
     # initialize own balance
     balances[PEER_NAME] = INIT_BALANCE
     
@@ -558,6 +724,7 @@ def start():
     recalculate_balances()
     
 def initialize_peer_balances():
+    """Initialize balances for all known peers from tracker data."""
     try:
         # get peer info from tracker
         url = f"http://{TRACKER_HOST}:{TRACKER_PORT}/peer_info"
@@ -571,6 +738,7 @@ def initialize_peer_balances():
         print(f"⚠️ Could not initialize peer balances: {e}")
 
 def try_resolve_chain():
+    """Attempt to sync with the longest valid chain from peers."""
     global blockchain
     print("🔍 Trying to sync blockchain from peers...")
     longest_chain = blockchain.chain
